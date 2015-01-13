@@ -15,6 +15,8 @@ import signal
 import os
 import sys
 
+from rabbitmq.cluster import RabbitReplica, RabbitClusterClient
+
 CONFIG_DEFAULTS = {
     'auth_url': 'http://127.0.0.1:8080/auth/v1.0',
     'host': '0.0.0.0',
@@ -39,6 +41,12 @@ CONFIG_DEFAULTS = {
 
     'stats_host': '',
     'stats_port': '38021',
+
+    'rabbitmq_hosts': '127.0.0.1:5672',
+    'queue_name': 'swftp_uploads',
+    'username': 'admin',
+    'password': 'admin',
+
 }
 
 
@@ -63,6 +71,7 @@ def run():
 def get_config(config_path, overrides):
     c = ConfigParser.ConfigParser(CONFIG_DEFAULTS)
     c.add_section('ftp')
+    c.add_section('rabbitmq')
     if config_path:
         log.msg('Reading configuration from path: %s' % config_path)
         c.read(config_path)
@@ -158,7 +167,18 @@ def makeService(options):
         rewrite_netloc=c.get('ftp', 'rewrite_storage_netloc'),
     )
 
-    ftpportal = Portal(SwftpRealm())
+    rabbitmq_hosts = c.get('rabbitmq', 'rabbitmq_hosts') \
+    rabbitmq_cluster = RabbitClusterClient([RabbitReplica(host, port) \
+                        for host, port in [(h,int(p)) for h,p in [r.split(':') \
+                        for r in rabbitmq_hosts.split(',')]]], \
+                        c.get('rabbitmq', 'username'), \
+                        c.get('rabbitmq', 'password')) \
+                        if rabbitmq_hosts else None
+    queue_name = c.get('rabbitmq', 'queue_name')
+
+    realm = SwftpRealm(rabbitmq_cluster, queue_name)
+
+    ftpportal = Portal(realm)
     ftpportal.registerChecker(authdb)
     ftpfactory = FTPFactory(ftpportal)
     protocol = SwftpFTPProtocol

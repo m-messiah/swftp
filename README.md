@@ -149,6 +149,13 @@ log_statsd_metric_prefix = ftp
 
 stats_host = 
 stats_port = 38021
+
+[rabbitmq]
+rabbitmq_hosts = 127.0.0.1:5672
+queue_name = swftp_uploads
+username = admin
+password = admin
+
 ```
 
 **Server Options**
@@ -183,6 +190,10 @@ stats_port = 38021
 * **log_statsd_sample_rate** - How often in seconds to send metrics to the statsd server.
 * **log_statsd_metric_prefix** - Prefix appended to each stat sent to statsd.
 
+**Rabbitmq Options**
+
+* **rabbitmq_hosts** - Comma separated rabbitmq cluster hosts.
+* **queue_name** - Rabbitmq queue name where info about uploaded file will be published.
 
 Caveats
 -------

@@ -155,9 +155,9 @@ class SwiftFTPShell(object):
     """ Implements all the methods needed to treat Swift as an FTP Shell """
     implements(IFTPShell)
 
-    def __init__(self, swiftconn):
+    def __init__(self, swiftconn, rabbitmq_cluster, queue_name):
         self.swiftconn = swiftconn
-        self.swiftfilesystem = SwiftFileSystem(self.swiftconn)
+        self.swiftfilesystem = SwiftFileSystem(self.swiftconn, rabbitmq_cluster, queue_name)
         self.log_command('login')
 
     def log_command(self, command, *args):

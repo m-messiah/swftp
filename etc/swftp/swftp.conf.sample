@@ -12,7 +12,7 @@
 #rewrite_storage_netloc =
 #extra_headers =
 
-#log_statsd_host = 
+#log_statsd_host =
 #log_statsd_port = 8125
 #log_statsd_sample_rate = 10
 #log_statsd_metric_prefix = sftp
@@ -41,3 +41,9 @@
 
 #stats_host =
 #stats_port = 38021
+
+[rabbitmq]
+rabbitmq_hosts = 127.0.0.1:5672
+queue_name = swftp_uploads
+username: admin
+password: admin

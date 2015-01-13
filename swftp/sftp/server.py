@@ -151,9 +151,11 @@ class SwiftSFTPUser(avatar.ConchUser):
     :param swiftconn: an swftp.swift.SwiftConnection instance
 
     """
-    def __init__(self, swiftconn):
+    def __init__(self, swiftconn, rabbitmq_cluster, queue_name):
         avatar.ConchUser.__init__(self)
         self.swiftconn = swiftconn
+        self.rabbitmq_cluster = rabbitmq_cluster
+        self.queue_name = queue_name
 
         self.channelLookup.update({"session": session.SSHSession})
         self.subsystemLookup.update({"sftp": SwiftFileTransferServer})
@@ -193,7 +195,7 @@ class SFTPServerForSwiftConchUser(object):
 
     def __init__(self, avatar):
         self.swiftconn = avatar.swiftconn
-        self.swiftfilesystem = SwiftFileSystem(self.swiftconn)
+        self.swiftfilesystem = SwiftFileSystem(self.swiftconn, avatar.rabbitmq_cluster, avatar.queue_name)
         self.avatar = avatar
         self.conn = avatar.conn
         self.log_command('login')

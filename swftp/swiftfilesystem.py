@@ -9,6 +9,7 @@ import stat
 import os
 import urlparse
 import time
+import json
 
 from twisted.internet import defer, reactor, task
 from twisted.web.iweb import IBodyProducer, UNKNOWN_LENGTH
@@ -20,7 +21,6 @@ from zope import interface
 from swftp.utils import OrderedDict
 from swftp.utils import try_datetime_parse
 from swftp.swift import NotFound, Conflict
-
 
 def obj_to_path(path):
     " Convert an entire path to a (container, item) tuple "
@@ -119,14 +119,22 @@ class SwiftWriteFile(object):
 
 class SwiftFileSystem(object):
     "Defines a common interface used to create Swift similar to a filesystem"
-    def __init__(self, swiftconn):
+    def __init__(self, swiftconn, rabbitmq_cluster = None, queue_name = None):
         self.swiftconn = swiftconn
+        self.rabbitmq_cluster = rabbitmq_cluster
+        self.queue_name = queue_name
 
     def startFileUpload(self, fullpath):
         "returns IConsumer to write to object data to"
         container, path = obj_to_path(fullpath)
         consumer = SwiftWriteFile()
         d = self.swiftconn.put_object(container, path, body=consumer)
+        if self.rabbitmq_cluster and self.queue_name:
+            @defer.inlineCallbacks
+            def onUpload(result):
+                replica = yield self.rabbitmq_cluster.connect()
+                yield replica.send(self.queue_name, json.dumps({'username': self.swiftconn.username, 'path': fullpath}))
+            d.addCallback(onUpload)
         return d, consumer
 
     def startFileDownload(self, fullpath, consumer, offset=0):
@@ -274,6 +282,8 @@ class SwiftFileSystem(object):
                 if 'subdir' in f:
                     f['name'] = f['subdir']
                     f['content-type'] = 'application/directory'
+                if 'content_type' not in f and f['bytes'] > 0:
+                    f['content_type'] = 'application/octet-stream'
                 f['formatted_name'] = os.path.basename(
                     f['name'].encode("utf-8").rstrip('/'))
                 all_files[f['formatted_name']] = f

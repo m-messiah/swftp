@@ -17,6 +17,7 @@ import os
 import sys
 import time
 
+from rabbitmq.cluster import RabbitReplica, RabbitClusterClient
 
 CONFIG_DEFAULTS = {
     'auth_url': 'http://127.0.0.1:8080/auth/v1.0',
@@ -42,6 +43,11 @@ CONFIG_DEFAULTS = {
 
     'stats_host': '',
     'stats_port': '38022',
+
+    'rabbitmq_hosts': '127.0.0.1:5672',
+    'queue_name': 'swftp_uploads',
+    'username': 'admin',
+    'password': 'admin',
 
     # ordered by performance
     'chiphers': 'blowfish-cbc,aes128-cbc,aes192-cbc,cast128-cbc,aes128-ctr,'
@@ -87,6 +93,7 @@ def parse_config_list(conf_name, conf_value, valid_options_list):
 def get_config(config_path, overrides):
     c = ConfigParser.ConfigParser(CONFIG_DEFAULTS)
     c.add_section('sftp')
+    c.add_section('rabbitmq')
     if config_path:
         log.msg('Reading configuration from path: %s' % config_path)
         c.read(config_path)
@@ -209,7 +216,16 @@ def makeService(options):
         rewrite_netloc=c.get('sftp', 'rewrite_storage_netloc'),
     )
 
-    realm = SwftpRealm()
+    rabbitmq_hosts = c.get('rabbitmq', 'rabbitmq_hosts')
+    rabbitmq_cluster = RabbitClusterClient([RabbitReplica(host, port) \
+                        for host, port in [(h,int(p)) for h,p in [r.split(':') \
+                        for r in rabbitmq_hosts.split(',')]]], \
+                        c.get('rabbitmq', 'username'), \
+                        c.get('rabbitmq', 'password')) \
+                        if rabbitmq_hosts else None
+    queue_name = c.get('rabbitmq', 'queue_name')
+
+    realm = SwftpRealm(rabbitmq_cluster, queue_name)
     sftpportal = Portal(realm)
     sftpportal.registerChecker(authdb)
 
