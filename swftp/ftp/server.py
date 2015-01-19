@@ -10,7 +10,7 @@ from zope.interface import implements
 from twisted.protocols.ftp import (
     FTP, IFTPShell, IReadFile, IWriteFile, FileNotFoundError,
     CmdNotImplementedForArgError, IsNotADirectoryError, IsADirectoryError,
-    RESPONSE, TOO_MANY_CONNECTIONS)
+    RESPONSE, TOO_MANY_CONNECTIONS, CMD_OK)
 from twisted.internet import defer, reactor
 from twisted.internet.protocol import Protocol
 from twisted.python import log
@@ -56,6 +56,7 @@ class SwftpFTPProtocol(FTP, object):
     maxConnectionsPerUser = 10
 
     PUBLIC_COMMANDS = ['FEAT', 'QUIT', 'AUTH']
+    tls_mode = False
 
     def ftp_AUTH(self, *args, **kwargs):
         mode, = args
@@ -65,6 +66,15 @@ class SwftpFTPProtocol(FTP, object):
             self.transport.startTLS(self.factory.cert_options)
             return
         return defer.fail(CmdNotImplementedError('AUTH %s' % mode))
+
+    def ftp_PBSZ(self, *args, **kwargs):
+        return CMD_OK
+
+    def ftp_PROT(self, *args, **kwargs):
+        cmd, = args
+        if cmd == 'P':
+            self.tls_mode = True
+            return CMD_OK
 
     def connectionMade(self, *args, **kwargs):
         log.msg(metric='num_clients')
@@ -131,6 +141,9 @@ class SwftpFTPProtocol(FTP, object):
 
         def dtp_connect_timeout_eb(failure):
             failure.trap(PortConnectionError)
+
+        if self.tls_mode:
+            d.addCallback(lambda i: self.dtpInstance.transport.startTLS(self.factory.cert_options))
 
         return d.addErrback(dtp_connect_timeout_eb)
 
