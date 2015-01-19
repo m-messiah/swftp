@@ -8,7 +8,9 @@ from swftp.logging import StdOutObserver
 
 from twisted.application import internet, service
 from twisted.python import usage, log
-from twisted.internet import reactor
+from twisted.internet import reactor, ssl
+
+from OpenSSL import crypto
 
 import ConfigParser
 import signal
@@ -22,6 +24,8 @@ CONFIG_DEFAULTS = {
 
     'rewrite_storage_scheme': '',
     'rewrite_storage_netloc': '',
+
+    'cert': '/etc/swftp/cert.pem',
 
     'num_persistent_connections': '100',
     'num_connections_per_session': '10',
@@ -167,6 +171,10 @@ def makeService(options):
     ftpfactory.welcomeMessage = c.get('ftp', 'welcome_message')
     ftpfactory.allowAnonymous = False
     ftpfactory.timeOut = c.getint('ftp', 'session_timeout')
+
+    cert_string = file(c.get('ftp', 'cert')).read()
+    cert = ssl.PrivateCertificate.loadPEM(cert_string)
+    ftpfactory.cert_options = cert.options()
 
     signal.signal(signal.SIGUSR1, log_runtime_info)
     signal.signal(signal.SIGUSR2, log_runtime_info)
