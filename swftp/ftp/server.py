@@ -16,13 +16,16 @@ from twisted.internet.protocol import Protocol
 from twisted.python import log
 from twisted.protocols.ftp import (
     CmdArgSyntaxError, BadCmdSequenceError,
-    REQ_FILE_ACTN_PENDING_FURTHER_INFO, PortConnectionError
+    REQ_FILE_ACTN_PENDING_FURTHER_INFO, PortConnectionError,
+    CmdNotImplementedError,
 )
 
 from swftp.logging import msg
 from swftp.swiftfilesystem import SwiftFileSystem, swift_stat, obj_to_path
 from swftp.swift import NotFound, Conflict
 
+AUTH_OK = '234'
+RESPONSE[AUTH_OK] = "234 Proceed with negotiation."
 
 def stat_format(keys, props):
     st = swift_stat(**props)
@@ -51,6 +54,17 @@ def stat_format(keys, props):
 class SwftpFTPProtocol(FTP, object):
     _connCountMap = defaultdict(int)
     maxConnectionsPerUser = 10
+
+    PUBLIC_COMMANDS = ['FEAT', 'QUIT', 'AUTH']
+
+    def ftp_AUTH(self, *args, **kwargs):
+        mode, = args
+        if mode == 'TLS':
+            msg("Initiated TLS")
+            self.reply(AUTH_OK)
+            self.transport.startTLS(self.factory.cert_options)
+            return
+        return defer.fail(CmdNotImplementedError('AUTH %s' % mode))
 
     def connectionMade(self, *args, **kwargs):
         log.msg(metric='num_clients')

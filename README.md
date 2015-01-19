@@ -39,7 +39,7 @@ $ python setup.py install
 ```
 
 ### Start FTP Server
-To run the FTP server, simply run this command. 
+To run the FTP server, simply run this command.
 ```bash
 $ swftp-ftp -a http://127.0.0.1:8080/auth/v1.0
 2013-02-18 16:28:50-0600 [-] Log opened.
@@ -135,6 +135,8 @@ sessions_per_user = 10
 connection_timeout = 240
 welcome_message = Welcome to SwFTP - An FTP/SFTP interface for Openstack Swift
 
+cert = /etc/swftp/cert.pem
+
 auth_url = http://127.0.0.1:8080/auth/v1.0
 num_persistent_connections = 20
 num_connections_per_session = 10
@@ -147,7 +149,7 @@ log_statsd_port = 8125
 log_statsd_sample_rate = 10
 log_statsd_metric_prefix = ftp
 
-stats_host = 
+stats_host =
 stats_port = 38021
 
 [rabbitmq]
@@ -167,6 +169,7 @@ password = admin
 * **pub_key** - (SFTP Only) - File path to the public SSH key generated from the private key.
 * **session_timeout** - (FTP Only) - Session timeout in seconds. Idle sessions will be closed after this much time.
 * **welcome_message** - (FTP Only) - Custom FTP welcome message.
+* **cert** - (FTP Only) - Certificate with private key in PEM format for explicit TLS.
 
 **Swift Options**
 
