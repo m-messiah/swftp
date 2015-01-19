@@ -171,7 +171,7 @@ def makeService(options):
         rewrite_netloc=c.get('ftp', 'rewrite_storage_netloc'),
     )
 
-    rabbitmq_hosts = c.get('rabbitmq', 'rabbitmq_hosts') \
+    rabbitmq_hosts = c.get('rabbitmq', 'rabbitmq_hosts')
     rabbitmq_cluster = RabbitClusterClient([RabbitReplica(host, port) \
                         for host, port in [(h,int(p)) for h,p in [r.split(':') \
                         for r in rabbitmq_hosts.split(',')]]], \
