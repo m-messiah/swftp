@@ -8,9 +8,10 @@ from collections import defaultdict
 
 from zope.interface import implements
 from twisted.protocols.ftp import (
-    FTP, IFTPShell, IReadFile, IWriteFile, FileNotFoundError,
+    FTP, IFTPShell, IReadFile, IWriteFile, FileNotFoundError, DTPFactory,
     CmdNotImplementedForArgError, IsNotADirectoryError, IsADirectoryError,
-    RESPONSE, TOO_MANY_CONNECTIONS, CMD_OK)
+    RESPONSE, TOO_MANY_CONNECTIONS, CMD_OK, ENTERING_PORT_MODE,
+    CANT_OPEN_DATA_CNX)
 from twisted.internet import defer, reactor
 from twisted.internet.protocol import Protocol
 from twisted.python import log
@@ -143,9 +144,33 @@ class SwftpFTPProtocol(FTP, object):
             failure.trap(PortConnectionError)
 
         if self.tls_mode:
-            d.addCallback(lambda i: self.dtpInstance.transport.startTLS(self.factory.cert_options))
+            def cb(res):
+                self.dtpInstance.transport.startTLS(self.factory.cert_options)
+            d.addCallback(cb)
 
         return d.addErrback(dtp_connect_timeout_eb)
+
+    def ftp_PORT(self, address):
+        addr = map(int, address.split(','))
+        ip = '%d.%d.%d.%d' % tuple(addr[:4])
+        port = addr[4] << 8 | addr[5]
+
+        # if we have a DTP port set up, lose it.
+        if self.dtpFactory is not None:
+            self.cleanupDTP()
+
+        self.dtpFactory = DTPFactory(pi=self, peerHost=self.transport.getPeer().host)
+        self.dtpFactory.setTimeout(self.dtpTimeout)
+        self.dtpPort = reactor.connectTCP(ip, port, self.dtpFactory)
+
+        def connected(ignored):
+            self.reply(ENTERING_PORT_MODE)
+            if self.tls_mode:
+                self.dtpInstance.transport.startTLS(self.factory.cert_options)
+        def connFailed(err):
+            err.trap(PortConnectionError)
+            return CANT_OPEN_DATA_CNX
+        return self.dtpFactory.deferred.addCallbacks(connected, connFailed)
 
     def ftp_REST(self, value):
         if self.dtpInstance is None:

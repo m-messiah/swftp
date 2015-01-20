@@ -274,8 +274,9 @@ class SwiftFileSystem(object):
                 if 'subdir' in f:
                     f['name'] = f['subdir']
                     f['content-type'] = 'application/directory'
-                if 'content_type' not in f and f['bytes'] > 0:
-                    f['content_type'] = 'application/octet-stream'
+                else:
+                    if 'content_type' not in f and f.get('bytes', 0) > 0:
+                        f['content_type'] = 'application/octet-stream'
                 f['formatted_name'] = os.path.basename(
                     f['name'].encode("utf-8").rstrip('/'))
                 all_files[f['formatted_name']] = f
