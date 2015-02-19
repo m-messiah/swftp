@@ -30,11 +30,13 @@ setup(
     install_requires=requires,
     entry_points={
         'console_scripts': ['swftp-ftp = swftp.ftp.service:run',
-                            'swftp-sftp = swftp.sftp.service:run'],
+                            'swftp-sftp = swftp.sftp.service:run',
+                            'swftp-smtp = swftp.smtp.service:run'],
     },
     package_data={
         'twisted.plugins': ['twisted/plugins/swftp_ftp.py',
-                            'twisted/plugins/swftp_sftp.py'],
+                            'twisted/plugins/swftp_sftp.py',
+                            'twisted/plugins/swftp_smtp.py'],
         'swftp.test': [
             'test-sftp.conf',
             'test-ftp.conf',
