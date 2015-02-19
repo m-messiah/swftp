@@ -1,7 +1,8 @@
 from pika import ConnectionParameters, PlainCredentials, BasicProperties
-from twisted.python import log
 from pika.adapters.twisted_connection import TwistedProtocolConnection
 from twisted.internet import defer, reactor, protocol, task
+from twisted.python import log
+from swftp.logging import msg
 
 class RabbitReplica:
 
@@ -18,7 +19,7 @@ class RabbitReplica:
         return self.connection and self.connection.is_open
 
     def disconnect(self):
-        log.msg('Disconnecting from %s' % self)
+        msg('Disconnecting from %s' % self)
         if self.is_connected():
             self.connection.close()
             d = defer.Deferred()
@@ -30,12 +31,12 @@ class RabbitReplica:
 
 
     def send(self, queue_name, body):
-        log.msg('Publishing %s body to "%s" on %s' % (len(body), queue_name, self))
+        msg('Publishing %s body to "%s" on %s' % (len(body), queue_name, self))
         properties=BasicProperties(delivery_mode=1)
 
         @defer.inlineCallbacks
         def on_declare(queue):
-            log.msg("Queue %s declared" % queue_name)
+            msg("Queue %s declared" % queue_name)
             def on_publish_failed(result):
                 channel, response, props, body = result
                 log.err("Publish failed %s" % response)
@@ -52,7 +53,7 @@ class RabbitReplica:
     def connect(self, credentials):
         if self.is_connected():
             return defer.succeed(True)
-        log.msg('Connecting to %s' % self)
+        msg('Connecting to %s' % self)
         parameters = ConnectionParameters(virtual_host='/', credentials=credentials)
         cc = protocol.ClientCreator(reactor, TwistedProtocolConnection, parameters)
         d = cc.connectTCP(self.host, self.port)
@@ -61,7 +62,7 @@ class RabbitReplica:
         def success(connection):
             self.connection = connection
             self.channel = yield connection.channel()
-            log.msg('Connected to %s channel open' % self)
+            msg('Connected to %s channel open' % self)
             defer.returnValue(True)
 
         def failed(error):
@@ -89,7 +90,7 @@ class RabbitClusterClient:
                 self.__next()
                 replica = self.replicas[self.index]
                 if self.index == 0:
-                    log.msg('Reconnecting afer 10 sec')
+                    msg('Reconnecting afer 10 sec')
                     yield task.deferLater(reactor, 10, lambda: None)
             defer.returnValue(replica)
         d = defer.succeed(None)
