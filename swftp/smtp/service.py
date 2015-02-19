@@ -162,7 +162,7 @@ def makeService(options):
                         c.get('rabbitmq', 'password')) \
                         if rabbitmq_hosts else None
     queue_name = c.get('smtp', 'queue_name')
-    recipients = {u.strip():None for u in c.get('smtp', 'recipients').split(',')}
+    recipients = {u.strip() for u in c.get('smtp', 'recipients').split(',')}
     swift_username = c.get('smtp', 'swift_username')
     swift_password = c.get('smtp', 'swift_password')
 
