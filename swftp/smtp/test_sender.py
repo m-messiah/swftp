@@ -3,7 +3,7 @@
 import smtplib
 
 sender = 'from@fromdomain.com'
-receivers = ['e@todomain.com']
+receivers = ['console@todomain.com', 'asd@asd.com']
 
 message = """From: From Person <from@fromdomain.com>
 To: To Person <to@todomain.com>

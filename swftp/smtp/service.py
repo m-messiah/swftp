@@ -32,8 +32,6 @@ CONFIG_DEFAULTS = {
     'swift_username':'username',
     'swift_password':'password',
 
-    'recipients':'',
-
     'rewrite_storage_scheme': '',
     'rewrite_storage_netloc': '',
 
@@ -162,7 +160,6 @@ def makeService(options):
                         c.get('rabbitmq', 'password')) \
                         if rabbitmq_hosts else None
     queue_name = c.get('smtp', 'queue_name')
-    recipients = dict((u.strip(), None) for u in c.get('smtp', 'recipients').split(','))
     swift_username = c.get('smtp', 'swift_username')
     swift_password = c.get('smtp', 'swift_password')
 
@@ -180,18 +177,16 @@ def makeService(options):
     @defer.inlineCallbacks
     def prepare_path():
         swift_conn = yield swift_connect()
-        swift_filesystem = SwiftFileSystem(swift_conn, rabbitmq_cluster, queue_name)
+        swift_filesystem = SwiftFileSystem(swift_conn)
         try:
             yield swift_filesystem.get_container_listing('smtp', '/')
         except swift.NotFound:
             yield swift_filesystem.makeDirectory('/smtp/')
-        for recipient in recipients:
-            yield swift_filesystem.makeDirectory('/smtp/%s' % recipient)
         defer.returnValue(None)
 
     prepare_path()
 
-    smtp_factory = SwftpSMTPFactory(swift_connect, recipients, rabbitmq_cluster,\
+    smtp_factory = SwftpSMTPFactory(swift_connect, rabbitmq_cluster,\
                                 queue_name)
 
     signal.signal(signal.SIGUSR1, log_runtime_info)
