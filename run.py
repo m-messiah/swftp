@@ -1,4 +1,4 @@
 #!/usr/bin/python
-from swftp.smtp import service
+from swftp.ftp import service
 
 service.run()

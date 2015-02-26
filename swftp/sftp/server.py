@@ -195,8 +195,10 @@ class SFTPServerForSwiftConchUser(object):
 
     def __init__(self, avatar):
         self.swiftconn = avatar.swiftconn
-        self.swiftfilesystem = SwiftFileSystem(self.swiftconn, avatar.rabbitmq_cluster, avatar.queue_name)
+        self.swiftfilesystem = SwiftFileSystem(self.swiftconn)
         self.avatar = avatar
+        self.rabbitmq_cluster = avatar.rabbitmq_cluster
+        self.queue_name = avatar.queue_name
         self.conn = avatar.conn
         self.log_command('login')
 

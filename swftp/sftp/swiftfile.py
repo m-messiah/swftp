@@ -15,6 +15,7 @@ from twisted.internet.protocol import Protocol
 from twisted.internet.interfaces import IPushProducer
 from twisted.internet.error import ConnectionLost
 from twisted.python import log
+import json
 
 from swftp.swift import NotFound
 
@@ -154,7 +155,10 @@ class SwiftFileSender(object):
     max_buffer_writes = 20
     buffer_writes_resume = 5
 
-    def __init__(self, swiftfilesystem, fullpath, session):
+    def __init__(self, swiftfilesystem, fullpath, session, rabbitmq_cluster,\
+                    queue_name):
+        self.rabbitmq_cluster = rabbitmq_cluster
+        self.queue_name = queue_name
         self.swiftfilesystem = swiftfilesystem
         self.fullpath = fullpath
         self.session = session
@@ -231,6 +235,12 @@ class SwiftFileSender(object):
             writer.registerProducer(self, streaming=True)
             writer.started.addCallback(self.cb_start_task)
             self.started = True
+            if self.rabbitmq_cluster and self.queue_name:
+                @defer.inlineCallbacks
+                def onUpload(result):
+                    replica = yield self.rabbitmq_cluster.connect()
+                    yield replica.send(self.queue_name, json.dumps({'username': self.swiftfilesystem.swiftconn.username, 'path': self.fullpath, 'gate': 'sftp'}))
+                self.write_finished.addCallback(onUpload)
         d = defer.Deferred()
         self._writeBuffer.append((d, data))
         self._checkBuffer()
@@ -295,7 +305,8 @@ class SwiftFile(object):
     def writeChunk(self, offset, data):
         if not self.w:
             self.w = SwiftFileSender(
-                self.swiftfilesystem, self.fullpath, self.session)
+                self.swiftfilesystem, self.fullpath, self.session,\
+                self.server.rabbitmq_cluster, self.server.queue_name)
 
         d = self.w.write(data)
 

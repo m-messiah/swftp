@@ -4,6 +4,7 @@ This file contains the primary server code for the FTP server.
 See COPYING for license information.
 """
 import stat
+import json
 from collections import defaultdict
 
 from zope.interface import implements
@@ -210,8 +211,10 @@ class SwiftFTPShell(object):
 
     def __init__(self, swiftconn, rabbitmq_cluster, queue_name):
         self.swiftconn = swiftconn
-        self.swiftfilesystem = SwiftFileSystem(self.swiftconn, rabbitmq_cluster, queue_name)
+        self.swiftfilesystem = SwiftFileSystem(self.swiftconn)
         self.log_command('login')
+        self.rabbitmq_cluster = rabbitmq_cluster
+        self.queue_name = queue_name
 
     def log_command(self, command, *args):
         arg_list = ', '.join(str(arg) for arg in args)
@@ -367,20 +370,29 @@ class SwiftFTPShell(object):
         if not container or not obj:
             raise CmdNotImplementedForArgError(
                 'Cannot upload files to root directory.')
-        f = SwiftWriteFile(self.swiftfilesystem, fullpath)
+        f = SwiftWriteFile(self.swiftfilesystem, fullpath,\
+                self.rabbitmq_cluster, self.queue_name)
         return defer.succeed(f)
 
 
 class SwiftWriteFile(object):
     implements(IWriteFile)
 
-    def __init__(self, swiftfilesystem, fullpath):
+    def __init__(self, swiftfilesystem, fullpath, rabbitmq_cluster, queue_name):
         self.swiftfilesystem = swiftfilesystem
         self.fullpath = fullpath
         self.finished = None
+        self.rabbitmq_cluster = rabbitmq_cluster
+        self.queue_name = queue_name
 
     def receive(self):
         d, writer = self.swiftfilesystem.startFileUpload(self.fullpath)
+        if self.rabbitmq_cluster and self.queue_name:
+            @defer.inlineCallbacks
+            def onUpload(result):
+                replica = yield self.rabbitmq_cluster.connect()
+                yield replica.send(self.queue_name, json.dumps({'username': self.swiftfilesystem.swiftconn.username, 'path': self.fullpath, 'gate': 'ftp'}))
+            d.addCallback(onUpload)
         self.finished = d
         return writer.started
 

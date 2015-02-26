@@ -9,7 +9,6 @@ import stat
 import os
 import urlparse
 import time
-import json
 
 from twisted.internet import defer, reactor, task
 from twisted.web.iweb import IBodyProducer, UNKNOWN_LENGTH
@@ -119,22 +118,14 @@ class SwiftWriteFile(object):
 
 class SwiftFileSystem(object):
     "Defines a common interface used to create Swift similar to a filesystem"
-    def __init__(self, swiftconn, rabbitmq_cluster = None, queue_name = None):
+    def __init__(self, swiftconn):
         self.swiftconn = swiftconn
-        self.rabbitmq_cluster = rabbitmq_cluster
-        self.queue_name = queue_name
 
     def startFileUpload(self, fullpath):
         "returns IConsumer to write to object data to"
         container, path = obj_to_path(fullpath)
         consumer = SwiftWriteFile()
         d = self.swiftconn.put_object(container, path, body=consumer)
-        if self.rabbitmq_cluster and self.queue_name:
-            @defer.inlineCallbacks
-            def onUpload(result):
-                replica = yield self.rabbitmq_cluster.connect()
-                yield replica.send(self.queue_name, json.dumps({'username': self.swiftconn.username, 'path': fullpath}))
-            d.addCallback(onUpload)
         return d, consumer
 
     def startFileDownload(self, fullpath, consumer, offset=0):
