@@ -14,45 +14,27 @@ import json
 class SwftpSMTPFactory(SMTPFactory):
     protocol = ESMTP
 
-    def __init__(self, swift_connect, rabbitmq_cluster, queue_name):
+    def __init__(self, connectToSwift, rabbitmq_cluster, queue_name):
         SMTPFactory.__init__(self)
-        self.swift_connect = swift_connect
+        self.connectToSwift = connectToSwift
         self.rabbitmq_cluster = rabbitmq_cluster
         self.queue_name = queue_name
-        self.swift_connection = None
-
-    @defer.inlineCallbacks
-    def connectToSwift(self):
-        if not self.swift_connection:
-            self.swift_connection = yield self.swift_connect()
-        defer.returnValue(self.swift_connection)
-
-    def sendToQueue(self, d, origin, recipient, path):
-        if self.rabbitmq_cluster and self.queue_name:
-            @defer.inlineCallbacks
-            def onUpload(result):
-                replica = yield self.rabbitmq_cluster.connect()
-                yield replica.send(self.queue_name, json.dumps({
-                    'username': self.swift_connection.username,
-                    'path': path,
-                    'origin': origin,
-                    'recipient': recipient,
-                    'gate': 'smtp'}))
-            d.addCallback(onUpload)
-
 
     def buildProtocol(self, addr):
         p = SMTPFactory.buildProtocol(self, addr)
-        p.delivery = SwiftSMTPUserDelivery(self)
+        p.delivery = SwiftSMTPUserDelivery(self.connectToSwift, self.rabbitmq_cluster, self.queue_name)
         return p
 
 class SwiftSMTPUserDelivery(object):
 
     implements(IMessageDelivery)
 
-    def __init__(self, factory):
-        self.factory = factory
+    def __init__(self, connectToSwift, rabbitmq_cluster, queue_name):
         self.recipients = {}
+        self.swift_connection = None
+        self.connectToSwift = connectToSwift
+        self.rabbitmq_cluster = rabbitmq_cluster
+        self.queue_name = queue_name
 
     def receivedHeader(self, helo, origin, recipients):
         r = ",".join(str(u) for u in recipients)
@@ -68,8 +50,9 @@ class SwiftSMTPUserDelivery(object):
         if valid is not None:
             msg("Recipient %s is %svalid [cached]" % (recipient, "" if valid else "not "))
             defer.returnValue(valid)
-        conn = yield self.factory.connectToSwift()
-        swift_filesystem = SwiftFileSystem(conn)
+        if not self.swift_connection:
+            self.swift_connection = yield self.connectToSwift()
+        swift_filesystem = SwiftFileSystem(self.swift_connection)
         try:
             yield swift_filesystem.getAttrs(''.join(['/smtp/',recipient]))
             valid = True
@@ -85,11 +68,23 @@ class SwiftSMTPUserDelivery(object):
         valid = yield self.isRecipientValid(recipient)
         if not valid:
             raise SMTPBadRcpt(user)
-        swift_conn = yield self.factory.connectToSwift()
-        swift_filesystem = SwiftFileSystem(swift_conn)
+        swift_filesystem = SwiftFileSystem(self.swift_connection)
         path = '/smtp/%s/%s' % (recipient, uuid4())
         d, swift_file = swift_filesystem.startFileUpload(path)
-        self.factory.sendToQueue(d, self.origin, recipient, path)
+
+        @defer.inlineCallbacks
+        def onUpload(ignored):
+            if not self.rabbitmq_cluster or not self.queue_name:
+                defer.returnValue(None)
+            replica = yield self.rabbitmq_cluster.connect()
+            yield replica.send(self.queue_name, json.dumps({
+                'username': self.swift_connection.username,
+                'path': path,
+                'origin': self.origin,
+                'recipient': recipient,
+                'gate': 'smtp'}))
+
+        d.addCallback(onUpload)
         yield swift_file.started
         msg("Uploading %s" % path)
         defer.returnValue(lambda: SwiftMessage(d, swift_file))
