@@ -1,7 +1,6 @@
 from pika import ConnectionParameters, PlainCredentials, BasicProperties
 from pika.adapters.twisted_connection import TwistedProtocolConnection
 from twisted.internet import defer, reactor, protocol, task
-from twisted.python import log
 from swftp.logging import msg
 
 class RabbitReplica:
@@ -39,12 +38,12 @@ class RabbitReplica:
             msg("Queue %s declared" % queue_name)
             def on_publish_failed(result):
                 channel, response, props, body = result
-                log.err("Publish failed %s" % response)
+                msg("Publish failed %s" % response)
             self.channel.add_on_return_callback(on_publish_failed)
             yield self.channel.basic_publish(exchange='', body=body, routing_key=queue_name, properties=properties, mandatory=True)
 
         def on_declare_fail(error):
-            log.err('Can not declare queue %s' % error)
+            msg('Can not declare queue %s' % error)
 
         d = self.channel.queue_declare(queue=queue_name, auto_delete=False, exclusive=False)
         d.addCallbacks(on_declare, on_declare_fail)
@@ -56,7 +55,7 @@ class RabbitReplica:
         msg('Connecting to %s' % self)
         parameters = ConnectionParameters(virtual_host='/', credentials=credentials)
         cc = protocol.ClientCreator(reactor, TwistedProtocolConnection, parameters)
-        d = cc.connectTCP(self.host, self.port)
+        d = cc.connectTCP(self.host, self.port, timeout=5)
 
         @defer.inlineCallbacks
         def success(connection):
@@ -66,7 +65,7 @@ class RabbitReplica:
             defer.returnValue(True)
 
         def failed(error):
-            log.err('Connect to %s failed: %s' % (self, error))
+            msg('Connect to %s failed: %s' % (self, error))
 
         d.addCallback(lambda protocol: protocol.ready)
         d.addCallbacks(success, failed)
@@ -82,30 +81,24 @@ class RabbitClusterClient:
     def __str__(self):
         return ''.join([str(r) for r in self.replicas])
 
-    def connect(self):
-        @defer.inlineCallbacks
-        def replica_connect(result):
+    @defer.inlineCallbacks
+    def connect(self, reconnect_after = None):
+        replica = self.replicas[self.index]
+        while not (yield replica.connect(self.credentials)):
+            self.__next()
             replica = self.replicas[self.index]
-            while not (yield replica.connect(self.credentials)):
-                self.__next()
-                replica = self.replicas[self.index]
-                if self.index == 0:
-                    msg('Reconnecting afer 10 sec')
-                    yield task.deferLater(reactor, 10, lambda: None)
-            defer.returnValue(replica)
-        d = defer.succeed(None)
-        d.addCallback(replica_connect)
-        return d
+            if self.index == 0:
+                if reconnect_after:
+                    msg('Reconnecting afer %s sec' % reconnect_after)
+                    yield task.deferLater(reactor, reconnect_after, lambda: None)
+                else:
+                    raise Exception("Rabbitmq cluster connection failed")
+        defer.returnValue(replica)
 
+    @defer.inlineCallbacks
     def disconnect(self):
-        @defer.inlineCallbacks
-        def _disconnect(result):
-            for replica in self.replicas:
-                yield replica.disconnect()
-        d = defer.succeed(None)
-        d.addCallback(_disconnect)
-        return d
-
+        for replica in self.replicas:
+            yield replica.disconnect()
 
     def __next(self):
         self.index = (self.index + 1) % len(self.replicas)

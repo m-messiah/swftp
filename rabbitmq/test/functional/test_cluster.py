@@ -1,6 +1,6 @@
 import sys
 from twisted.trial import unittest
-from cluster import RabbitClusterClient, RabbitReplica
+from rabbitmq.cluster import RabbitClusterClient, RabbitReplica
 from twisted.internet import reactor, defer
 from twisted.python import log
 
