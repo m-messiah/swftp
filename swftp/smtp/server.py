@@ -71,6 +71,7 @@ class SwiftSMTPUserDelivery(object):
         swift_filesystem = SwiftFileSystem(self.swift_connection)
         path = '/smtp/%s/%s' % (recipient, uuid4())
         d, swift_file = swift_filesystem.startFileUpload(path)
+        message = SwiftMessage(d, swift_file)
 
         @defer.inlineCallbacks
         def onUpload(ignored):
@@ -82,12 +83,13 @@ class SwiftSMTPUserDelivery(object):
                 'path': path,
                 'origin': self.origin,
                 'recipient': recipient,
+                'subj': message.subject,
                 'gate': 'smtp'}))
 
         d.addCallback(onUpload)
         yield swift_file.started
         msg("Uploading %s" % path)
-        defer.returnValue(lambda: SwiftMessage(d, swift_file))
+        defer.returnValue(lambda: message)
 
 class SwiftMessage:
     implements(IMessage, IPushProducer)
@@ -96,6 +98,7 @@ class SwiftMessage:
         swift_file.registerProducer(self, streaming=True)
         self.swift_file = swift_file
         self.uploading = uploading
+        self.subject = None
 
     def pauseProducing(self):
         pass
@@ -107,6 +110,8 @@ class SwiftMessage:
         pass
 
     def lineReceived(self, line):
+        if self.subject is None and line.startswith('Subject:'):
+            self.subject = line.split(':')[1].strip()
         self.swift_file.write(''.join([line, '\n']))
 
     def eomReceived(self):
