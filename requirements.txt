@@ -1,2 +1,6 @@
 paramiko
 mock
+psutil
+pyasn1
+pyopenssl
+twisted
