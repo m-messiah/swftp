@@ -4,3 +4,5 @@ psutil
 pyasn1
 pyopenssl
 twisted
+pika
+service-identity
