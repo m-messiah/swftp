@@ -367,14 +367,17 @@ class SFTPServerForSwiftConchUser(object):
 
     def setAttrs(self, path, attrs):
         """ Set attributes on a container/object. No-Op """
+        msg("NotImplemented try of setAttrs: path: [%s], attr: [%s]" % (str(path), str(attrs)))
         return
 
     def readLink(self, path):
         """ No-Op """
+        msg("NotImplemented try of readLink: path: [%s]" % str(path))
         raise NotImplementedError
 
     def makeLink(self, linkPath, targetPath):
         """ No-Op """
+        msg("NotImplemented try of makeLink: linkPath: [%s], targetPath: [%s]" % (str(linkPath), str(targetPath)))
         raise NotImplementedError
 
     def realPath(self, path):
@@ -389,6 +392,7 @@ class SFTPServerForSwiftConchUser(object):
 
     def extendedRequest(self, extName, extData):
         """ No-op """
+        msg("NotImplemented try of extendedRequest: extName: [%s], extData: [%s]" % (str(extName), str(extData)))
         raise NotImplementedError
 
 components.registerAdapter(
