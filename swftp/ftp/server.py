@@ -16,6 +16,7 @@ from twisted.protocols.ftp import (
 from twisted.internet import defer, reactor
 from twisted.internet.protocol import Protocol
 from twisted.python import log
+from twisted.python.filepath import Permissions
 from twisted.protocols.ftp import (
     CmdArgSyntaxError, BadCmdSequenceError,
     REQ_FILE_ACTN_PENDING_FURTHER_INFO, PortConnectionError,
@@ -38,7 +39,7 @@ def stat_format(keys, props):
         elif key == 'directory':
             val = st.st_mode & stat.S_IFDIR == stat.S_IFDIR
         elif key == 'permissions':
-            val = st.st_mode
+            val = Permissions(st.st_mode)
         elif key == 'hardlinks':
             val = st.st_nlink
         elif key == 'modified':
