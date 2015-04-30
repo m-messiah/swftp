@@ -16,7 +16,7 @@ Requirements
 ------------
 * Python 2.6-2.7
 * OpenSSL/pycrypto
-* Twisted/Twisted-Conch
+* Twisted/Twisted-Conch 11.0 or higher
 * pyasn1
 
 Getting Started
