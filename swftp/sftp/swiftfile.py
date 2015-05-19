@@ -97,6 +97,8 @@ class SwiftFileReceiver(Protocol):
                         len(self._recv_buffer) <= self.download_buffer_limit:
                     self.consume_paused = False
                     self.transport.resumeProducing()
+            else:
+                break
 
     def read(self, offset, length):
         """
