@@ -85,7 +85,7 @@ class SwiftFileReceiver(Protocol):
         """
         self._checksessionbuffer()
         for callback in self._recv_listeners:
-            d, _, length = callback
+            d, offset, length = callback
             if len(self._recv_buffer) >= length:
                 data = self._recv_buffer[:length]
                 d.callback(data)
@@ -167,6 +167,7 @@ class SwiftFileSender(object):
         self._task = None           # Task loop
         self._done_sending = False  # Set to True when the user closes the file
         self._writeBuffer = []
+        self._write_error = None
 
         self.paused = False
         self.started = False
@@ -186,7 +187,10 @@ class SwiftFileSender(object):
 
         for buf in self._writeBuffer:
             d, _ = buf
-            d.errback(SFTPError(FX_CONNECTION_LOST, 'Connection Lost'))
+            if self._write_error:            
+                d.errback(SFTPError(FX_FAILURE, 'Internal error'))
+            else:
+                d.errback(SFTPError(FX_CONNECTION_LOST, 'Connection Lost'))
             self._writeBuffer.remove(buf)
         self._writeBuffer = []
 
@@ -230,8 +234,7 @@ class SwiftFileSender(object):
     def write(self, data):
         if not self.started:
             # If we haven't started uploading to Swift, start up that process
-            self.write_finished, writer = \
-                self.swiftfilesystem.startFileUpload(self.fullpath)
+            self.write_finished, writer = self.swiftfilesystem.startFileUpload(self.fullpath)
             writer.registerProducer(self, streaming=True)
             writer.started.addCallback(self.cb_start_task)
             self.started = True
@@ -240,7 +243,11 @@ class SwiftFileSender(object):
                 def onUpload(result):
                     replica = yield self.rabbitmq_cluster.connect()
                     yield replica.send(self.queue_name, json.dumps({'username': self.swiftfilesystem.swiftconn.username, 'path': self.fullpath, 'gate': 'sftp'}))
-                self.write_finished.addCallback(onUpload)
+                def onError(failure):
+                    self._write_error = failure
+                    log.err(failure)
+                    self.stopProducing() 
+                self.write_finished.addCallbacks(onUpload, onError)
         d = defer.Deferred()
         self._writeBuffer.append((d, data))
         self._checkBuffer()
