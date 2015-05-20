@@ -187,10 +187,7 @@ class SwiftFileSender(object):
 
         for buf in self._writeBuffer:
             d, _ = buf
-            if self._write_error:            
-                d.errback(SFTPError(FX_FAILURE, 'Internal error'))
-            else:
-                d.errback(SFTPError(FX_CONNECTION_LOST, 'Connection Lost'))
+            d.errback(SFTPError(FX_CONNECTION_LOST, 'Connection Lost'))
             self._writeBuffer.remove(buf)
         self._writeBuffer = []
 
@@ -229,7 +226,9 @@ class SwiftFileSender(object):
 
     def close(self):
         self._done_sending = True
-        return self.write_finished
+        if self._write_error is None:
+            return self.write_finished
+        return defer.fail(SFTPError(FX_FAILURE, "Upload failed internal error"))
 
     def write(self, data):
         if not self.started:
@@ -245,8 +244,7 @@ class SwiftFileSender(object):
                     yield replica.send(self.queue_name, json.dumps({'username': self.swiftfilesystem.swiftconn.username, 'path': self.fullpath, 'gate': 'sftp'}))
                 def onError(failure):
                     self._write_error = failure
-                    log.err(failure)
-                    self.stopProducing() 
+                    log.err("Swift upload error: %s" % failure.getErrorMessage())
                 self.write_finished.addCallbacks(onUpload, onError)
         d = defer.Deferred()
         self._writeBuffer.append((d, data))
