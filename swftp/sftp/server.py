@@ -5,6 +5,7 @@ See COPYING for license information.
 """
 from zope import interface
 from collections import defaultdict
+from re import match as rmatch
 
 from twisted.conch.interfaces import ISFTPServer, ISession
 from twisted.python import components, log
@@ -282,6 +283,8 @@ class SFTPServerForSwiftConchUser(object):
         """
         self.log_command('makeDirectory', fullpath, attrs)
 
+        if not rmatch(r"^[a-zA-Z0-9\-]+$", fullpath):
+            return defer.fail(SFTPError(FX_FAILURE, 'Bucket must be domain-like. [a-zA-Z0-9\-]+'))
         def errback(failure):
             failure.trap(NotFound)
             raise SFTPError(FX_NO_SUCH_FILE, 'Directory Not Found')
