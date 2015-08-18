@@ -239,7 +239,7 @@ class SwiftFTPShell(object):
     def makeDirectory(self, path):
         self.log_command('makeDirectory', path)
         fullpath = self._fullpath(path)
-        if not rmatch(r"^[a-zA-Z0-9\-]+$", fullpath):
+        if '/' not in fullpath[1:] and  not rmatch(r"^[a-zA-Z0-9\-]+$", fullpath):
             return defer.fail(CmdNotImplementedForArgError('Directory must be domain-like. [a-zA-Z0-9\-]+'))
         return self.swiftfilesystem.makeDirectory(fullpath)
 
