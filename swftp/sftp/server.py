@@ -283,7 +283,8 @@ class SFTPServerForSwiftConchUser(object):
         """
         self.log_command('makeDirectory', fullpath, attrs)
 
-        if '/' not in fullpath[1:] and not rmatch(r"^[a-zA-Z0-9\-]+$", fullpath):
+        root = fullpath[1:]
+        if '/' not in root and not rmatch(r"^[a-zA-Z0-9\-]+$", root):
             return defer.fail(SFTPError(FX_FAILURE, 'Bucket must be domain-like. [a-zA-Z0-9\-]+'))
         def errback(failure):
             failure.trap(NotFound)
