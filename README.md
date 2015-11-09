@@ -1,5 +1,7 @@
 SwFTP
 =====
+[![Build Status](https://travis-ci.org/m-messiah/swftp.svg)](https://travis-ci.org/m-messiah/swftp)
+
 SwFTP is an FTP and SFTP interface for Openstack Object Storage (swift). It will act as a proxy between the FTP/SFTP protocols and OpenStack Object Storage.
 
 Features
