@@ -98,12 +98,12 @@ class MetricCollector(object):
         self.samples = defaultdict(list)
 
     def emit(self, eventDict):
-        " If there is a metric in the eventDict, collect that metric "
+        """ If there is a metric in the eventDict, collect that metric """
         if 'metric' in eventDict:
             self.add_metric(eventDict['metric'], eventDict.get('count', 1))
 
     def add_metric(self, metric, count=1):
-        " Adds a metric with the given count to the totals/current "
+        """ Adds a metric with the given count to the totals/current """
         self.current[metric] += count
         self.totals[metric] += count
 
@@ -114,8 +114,7 @@ class MetricCollector(object):
 
         for key in keys:
             self.samples[key].append(self.current[key])
-            self.samples[key] = \
-                self.samples[key][-self.sample_size - 1:]
+            self.samples[key] = self.samples[key][-self.sample_size - 1:]
 
         self.current = defaultdict(int)
 

@@ -22,6 +22,7 @@ class Stats(Resource):
     isLeaf = True
 
     def __init__(self, metric_collector, known_fields=None):
+        Resource.__init__(self)
         self.metric_collector = metric_collector
         self.known_fields = known_fields or []
 

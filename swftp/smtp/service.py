@@ -29,8 +29,8 @@ CONFIG_DEFAULTS = {
     'host': '0.0.0.0',
     'port': '2500',
 
-    'swift_username':'username',
-    'swift_password':'password',
+    'swift_username': 'username',
+    'swift_password': 'password',
 
     'rewrite_storage_scheme': '',
     'rewrite_storage_netloc': '',

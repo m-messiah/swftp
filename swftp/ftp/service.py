@@ -43,6 +43,11 @@ CONFIG_DEFAULTS = {
     'log_statsd_sample_rate': '10.0',
     'log_statsd_metric_prefix': 'swftp.ftp',
 
+    'log_graphite_host': '',
+    'log_graphite_port': '2003',
+    'log_graphite_sample_rate': '10.0',
+    'log_graphite_metric_prefix': 'swftp.ftp',
+
     'stats_host': '',
     'stats_port': '38021',
 
@@ -139,6 +144,19 @@ def makeService(options):
             ).setServiceParent(ftp_service)
         except ImportError:
             sys.stderr.write('Missing Statsd Module. Requires "txstatsd" \n')
+
+    # Add graphite service
+    if c.get('ftp', 'log_graphite_host'):
+        try:
+            from swftp.graphite import makeService as makeGraphiteService
+            makeGraphiteService(
+                c.get('ftp', 'log_graphite_host'),
+                c.getint('ftp', 'log_graphite_port'),
+                sample_rate=c.getfloat('ftp', 'log_graphite_sample_rate'),
+                prefix=c.get('ftp', 'log_graphite_metric_prefix')
+            ).setServiceParent(ftp_service)
+        except:
+            sys.stderr.write('Graphite not working\n')
 
     if c.get('ftp', 'stats_host'):
         from swftp.report import makeService as makeReportService
