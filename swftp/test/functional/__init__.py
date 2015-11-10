@@ -22,17 +22,20 @@ utf8_chars = u'\uF10F\uD20D\uB30B\u9409\u8508\u5605\u3703\u1801'\
 
 
 def get_config():
-    config_file = os.environ.get('SWFTP_TEST_CONFIG_FILE',
-                                 '/etc/swftp/test.conf')
-    section = 'func_test'
-    config = ConfigParser.ConfigParser()
-    config.read(config_file)
+    try:
+        config_file = os.environ.get('SWFTP_TEST_CONFIG_FILE',
+                                     '/etc/swftp/test.conf')
+        section = 'func_test'
+        config = ConfigParser.ConfigParser()
+        config.read(config_file)
 
-    config_dict = {}
-    for option in config.options(section):
-        config_dict[option] = config.get(section, option)
+        config_dict = {}
+        for option in config.options(section):
+            config_dict[option] = config.get(section, option)
 
-    return config_dict
+        return config_dict
+    except ConfigParser.NoSectionError:
+        return {}
 
 conf = get_config()
 

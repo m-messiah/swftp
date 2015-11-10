@@ -104,6 +104,7 @@ class Options(usage.Options):
             "[default: http://127.0.0.1:8080/auth/v1.0]"],
         ["port", "p", None, "Port to bind to."],
         ["host", "h", None, "IP to bind to."],
+        ["cert", "C", None, "Location of the FTP+SSL pem cert."],
     ]
 
 

@@ -12,7 +12,7 @@ from twisted.application import internet, service
 from twisted.python import usage, log
 from twisted.internet import reactor, defer
 from twisted.cred.checkers import InMemoryUsernamePasswordDatabaseDontUse
-from twisted.mail.smtp import SMTPFactory, ESMTP
+from twisted.mail.smtp import SMTPFactory, ESMTP, SMTPServerError
 from twisted.cred.credentials import UsernamePassword
 
 import ConfigParser
@@ -163,31 +163,37 @@ def makeService(options):
     swift_username = c.get('smtp', 'swift_username')
     swift_password = c.get('smtp', 'swift_password')
 
-
     def swift_connect():
-        d = authdb.requestAvatarId(UsernamePassword(swift_username, swift_password))
+        d = authdb.requestAvatarId(
+            UsernamePassword(swift_username, swift_password)
+        )
+
         def cb(connection):
             return connection
+
         def errback(failure):
             log.err("Swift connection failed: %s" % failure.type)
             raise SMTPServerError(451, "Internal server error")
+
         d.addCallbacks(cb, errback)
         return d
 
     @defer.inlineCallbacks
     def prepare_path():
-        swift_conn = yield swift_connect()
-        swift_filesystem = SwiftFileSystem(swift_conn)
         try:
-            yield swift_filesystem.get_container_listing('smtp', '/')
-        except swift.NotFound:
-            yield swift_filesystem.makeDirectory('/smtp/')
+            swift_conn = yield swift_connect()
+            swift_filesystem = SwiftFileSystem(swift_conn)
+            try:
+                yield swift_filesystem.get_container_listing('smtp', '/')
+            except swift.NotFound:
+                yield swift_filesystem.makeDirectory('/smtp/')
+        except:
+            pass
         defer.returnValue(None)
 
     prepare_path()
 
-    smtp_factory = SwftpSMTPFactory(swift_connect, rabbitmq_cluster,\
-                                queue_name)
+    smtp_factory = SwftpSMTPFactory(swift_connect, rabbitmq_cluster, queue_name)
 
     signal.signal(signal.SIGUSR1, log_runtime_info)
     signal.signal(signal.SIGUSR2, log_runtime_info)

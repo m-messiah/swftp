@@ -6,19 +6,18 @@ import socket
 
 from twisted.trial import unittest
 
-from swftp.ftp.service import makeService, Options
+from swftp.smtp.service import makeService, Options
 
 
 TEST_PATH = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 
 
-class FTPServiceTest(unittest.TestCase):
+class SMTPServiceTest(unittest.TestCase):
 
     def setUp(self):
         opts = Options()
         opts.parseOptions([
-            '--config_file=%s' % os.path.join(TEST_PATH, 'test-ftp.conf'),
-            '--cert=%s' % os.path.join(TEST_PATH, 'test-cert.pem'),
+            '--config_file=%s' % os.path.join(TEST_PATH, 'test-smtp.conf'),
         ])
         self.service = makeService(opts)
         return self.service.startService()
@@ -28,4 +27,4 @@ class FTPServiceTest(unittest.TestCase):
 
     def test_service_listen(self):
         sock = socket.socket()
-        sock.connect(('127.0.0.1', 6021))
+        sock.connect(('127.0.0.1', 2500))
