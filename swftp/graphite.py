@@ -57,13 +57,18 @@ class MetricReporter(object):
 
     def report_metrics(self):
         # Report collected metrics
-        results = self.collector.current
-        sender = socket.socket()
-        sender.connect(self.graphite)
-        ts = int(timestamp())
-        for name, value in results.items():
-            if self.prefix:
-                name = self.prefix + "." + name
-            sender.send("%s %s %s\n" % (name, value, ts))
-        sender.close()
-        self.collector.sample()
+        try:
+            results = self.collector.current
+            sender = socket.socket()
+            sender.connect(self.graphite)
+            ts = int(timestamp())
+            for name, value in results.items():
+                if self.prefix:
+                    name = self.prefix + "." + name
+                sender.send("%s %s %s\n" % (name, value, ts))
+            sender.close()
+        except socket.error:
+            pass
+        else:
+            self.collector.sample()
+            
