@@ -39,7 +39,8 @@ class SwiftBasedAuthDB(object):
                  extra_headers=None,
                  verbose=False,
                  rewrite_scheme=None,
-                 rewrite_netloc=None):
+                 rewrite_netloc=None,
+                 ceph_compatible=False):
         self.auth_url = auth_url
         self.global_max_concurrency = global_max_concurrency
         self.max_concurrency = max_concurrency
@@ -48,6 +49,7 @@ class SwiftBasedAuthDB(object):
         self.verbose = verbose
         self.rewrite_scheme = rewrite_scheme
         self.rewrite_netloc = rewrite_netloc
+        self.ceph_compatible = ceph_compatible
 
     def _rewrite_storage_url(self, connection):
         if not any((self.rewrite_scheme, self.rewrite_netloc)):
@@ -103,7 +105,9 @@ class SwiftBasedAuthDB(object):
                 locks, self.auth_url, creds.username, creds.password,
                 pool=pool,
                 extra_headers=self.extra_headers,
-                verbose=self.verbose)
+                verbose=self.verbose,
+                ceph_compatible=self.ceph_compatible
+            )
             conn.user_agent = USER_AGENT
 
             d = conn.authenticate()

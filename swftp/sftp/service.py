@@ -35,6 +35,7 @@ CONFIG_DEFAULTS = {
     'sessions_per_user': '10',
     'extra_headers': '',
     'verbose': 'false',
+    'ceph_compatible': 'false',
 
     'log_statsd_host': '',
     'log_statsd_port': '8125',
@@ -55,7 +56,7 @@ CONFIG_DEFAULTS = {
     'password': 'admin',
 
     # ordered by performance
-    'chiphers': 'blowfish-cbc,aes128-cbc,aes192-cbc,cast128-cbc,aes128-ctr,'
+    'ciphers': 'blowfish-cbc,aes128-cbc,aes192-cbc,cast128-cbc,aes128-ctr,'
                 'aes256-cbc,aes192-ctr,aes256-ctr,3des-cbc',
     'macs': 'hmac-md5, hmac-sha1',
     'compressions': 'none, zlib',
@@ -114,10 +115,10 @@ def get_config(config_path, overrides):
             c.set('sftp', k, str(v))
 
     # Parse Chipher List
-    chiphers = parse_config_list('ciphers',
-                                 c.get('sftp', 'chiphers'),
-                                 SwiftSSHServerTransport.supportedCiphers)
-    c.set('sftp', 'chiphers', chiphers)
+    ciphers = parse_config_list('ciphers',
+                                c.get('sftp', 'ciphers'),
+                                SwiftSSHServerTransport.supportedCiphers)
+    c.set('sftp', 'ciphers', ciphers)
 
     # Parse Mac List
     macs = parse_config_list('macs',
@@ -232,15 +233,22 @@ def makeService(options):
         verbose=c.getboolean('sftp', 'verbose'),
         rewrite_scheme=c.get('sftp', 'rewrite_storage_scheme'),
         rewrite_netloc=c.get('sftp', 'rewrite_storage_netloc'),
+        ceph_compatible=c.get('sftp', 'ceph_compatible')
     )
 
     rabbitmq_hosts = c.get('rabbitmq', 'rabbitmq_hosts')
-    rabbitmq_cluster = RabbitClusterClient([RabbitReplica(host, port) \
-                        for host, port in [(h,int(p)) for h,p in [r.split(':') \
-                        for r in rabbitmq_hosts.split(',')]]], \
-                        c.get('rabbitmq', 'username'), \
-                        c.get('rabbitmq', 'password')) \
-                        if rabbitmq_hosts else None
+    rabbitmq_cluster = RabbitClusterClient(
+        [
+            RabbitReplica(host, port)
+            for host, port in [
+                (h,int(p)) for h,p in [
+                    r.split(':') for r in rabbitmq_hosts.split(',')
+                ]
+            ]
+        ],
+        c.get('rabbitmq', 'username'),
+        c.get('rabbitmq', 'password')
+    ) if rabbitmq_hosts else None
     queue_name = c.get('rabbitmq', 'queue_name')
 
     realm = SwftpRealm(rabbitmq_cluster, queue_name)
@@ -250,7 +258,7 @@ def makeService(options):
     sshfactory = SSHFactory()
     protocol = SwiftSSHServerTransport
     protocol.maxConnectionsPerUser = c.getint('sftp', 'sessions_per_user')
-    protocol.supportedCiphers = c.get('sftp', 'chiphers')
+    protocol.supportedCiphers = c.get('sftp', 'ciphers')
     protocol.supportedMACs = c.get('sftp', 'macs')
     protocol.supportedCompressions = c.get('sftp', 'compressions')
     sshfactory.protocol = protocol

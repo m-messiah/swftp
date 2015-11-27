@@ -7,7 +7,7 @@ swift includes a basic swift client for twisted.
 See COPYING for license information.
 """
 from twisted.internet import reactor
-from twisted.internet.defer import Deferred, succeed
+from twisted.internet.defer import Deferred, succeed, fail
 from twisted.web.client import Agent, WebClientContextFactory
 from twisted.internet.protocol import Protocol
 from twisted.web.http_headers import Headers
@@ -15,6 +15,7 @@ from twisted.web import error
 from twisted.web._newclient import ResponseDone
 from twisted.web.http import PotentialDataLoss
 from twisted.python import log
+from twisted.cred.error import UnauthorizedLogin
 
 import json
 from urllib import quote as _quote
@@ -129,11 +130,12 @@ class SwiftConnection(object):
         :param pool: A twisted.web.client.HTTPConnectionPool object
         :param dict extra_headers: extra HTTP headers to send with each request
         :param bool verbose: verbose setting
+        :param bool ceph_compatible: skip users without colon
     """
     user_agent = 'Twisted Swift'
 
     def __init__(self, auth_url, username, api_key, pool=None,
-                 extra_headers=None, verbose=False):
+                 extra_headers=None, verbose=False, ceph_compatible=False):
         self.auth_url = auth_url
         self.username = username
         self.api_key = api_key
@@ -145,6 +147,7 @@ class SwiftConnection(object):
         self.agent = Agent(reactor, contextFactory, pool=self.pool)
         self.extra_headers = extra_headers
         self.verbose = verbose
+        self.ceph_compatible = ceph_compatible
 
     def _form_url(self, path, params):
         url = "/".join((self.storage_url, path))
@@ -216,6 +219,12 @@ class SwiftConnection(object):
         :returns t.w.c.Response:
 
         """
+        if self.username == "root":
+            return fail(UnauthorizedLogin())
+
+        if self.ceph_compatible and ":" not in self.username:
+            return fail(UnauthorizedLogin())
+
         h = {
             'User-Agent': [self.user_agent],
             'X-Auth-User': [self.username],
@@ -232,7 +241,7 @@ class SwiftConnection(object):
         return d
 
     def head_account(self):
-        " Get details of the account "
+        """ Get details of the account """
         d = self.make_request('HEAD', '')
         d.addCallback(cb_recv_resp)
         d.addCallback(format_head_response)
@@ -311,7 +320,7 @@ class SwiftConnection(object):
         """ Create a container
 
         :param container: The container name
-        :param header: Optional headers to add to the request
+        :param headers: Optional headers to add to the request
 
         :returns t.w.c.Response:
 
