@@ -8,7 +8,7 @@ See COPYING for license information.
 """
 from twisted.internet import reactor
 from twisted.internet.defer import Deferred, succeed, fail
-from twisted.web.client import Agent, WebClientContextFactory
+from twisted.web.client import Agent
 from twisted.internet.protocol import Protocol
 from twisted.web.http_headers import Headers
 from twisted.web import error
@@ -100,7 +100,7 @@ def cb_process_resp(body, response):
         raise UnAuthorized(response.code, body)
     if response.code == 409:
         raise Conflict(response.code, body)
-    elif response.code > 299 and response.code < 400:
+    elif 299 < response.code < 400:
         raise error.PageRedirect(response.code, body)
     elif response.code > 399:
         raise RequestError(response.code, body)
@@ -141,10 +141,8 @@ class SwiftConnection(object):
         self.api_key = api_key
         self.storage_url = None
         self.auth_token = None
-        contextFactory = WebClientContextFactory()
-        contextFactory.noisy = False
         self.pool = pool
-        self.agent = Agent(reactor, contextFactory, pool=self.pool)
+        self.agent = Agent(reactor, pool=self.pool)
         self.extra_headers = extra_headers
         self.verbose = verbose
         self.ceph_compatible = ceph_compatible
@@ -223,7 +221,7 @@ class SwiftConnection(object):
             return fail(UnauthorizedLogin())
 
         if self.ceph_compatible and ":" not in self.username:
-            return fail(UnauthorizedLogin())
+            self.username += ":" + self.username
 
         h = {
             'User-Agent': [self.user_agent],
